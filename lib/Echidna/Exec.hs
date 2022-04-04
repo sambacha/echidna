@@ -12,15 +12,21 @@ import Control.Monad.Catch (Exception, MonadThrow(..))
 import Control.Monad.State.Strict (MonadState, execState, execState)
 import Data.Has (Has(..))
 import Data.Maybe (fromMaybe)
+import System.Process (readProcessWithExitCode)
+import System.IO.Unsafe (unsafePerformIO)
+
 import EVM
 import EVM.Exec (exec, ethrunAddress)
-import EVM.Types (Buffer(..))
+import EVM.Types (Buffer(..), hexText)
 import EVM.Symbolic (litWord, litAddr)
 import EVM.FeeSchedule (berlin)
 import EVM.Concrete (createAddress)
+import EVM.ABI
 
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.Vector as V
+import qualified Data.Text as T
 
 import Echidna.Transaction
 import Echidna.Types.Buffer (viewBuffer)
@@ -106,6 +112,13 @@ execTxWith onErr executeTx tx' = do
       Just (PleaseFetchSlot _ _ continuation) -> do
         -- Use the zero slot
         hasLens %= execState (continuation 0)
+        continueAfterQuery
+
+      -- Execute a FFI call
+      Just (PleaseDoFFI (cmd : args) continuation) -> do
+        -- WARNING: this uses unsafePerformIO to avoid using IO here explicitely
+        let (_, stdout, _) = unsafePerformIO $ readProcessWithExitCode cmd args ""
+        hasLens %= execState (continuation $ encodeAbiValue $ AbiTuple (V.fromList [AbiBytesDynamic . hexText . T.pack $ stdout]))
         continueAfterQuery
 
       -- No queries to answer
