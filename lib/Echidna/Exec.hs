@@ -13,9 +13,11 @@ import Control.Monad.State.Strict (MonadState, execState, execState)
 import Data.Has (Has(..))
 import Data.Maybe (fromMaybe)
 import EVM
-import EVM.Exec (exec, vmForEthrunCreation)
+import EVM.Exec (exec, ethrunAddress)
 import EVM.Types (Buffer(..))
-import EVM.Symbolic (litWord)
+import EVM.Symbolic (litWord, litAddr)
+import EVM.FeeSchedule (berlin)
+import EVM.Concrete (createAddress)
 
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -183,7 +185,36 @@ execTxWithCov memo l = do
       bc <- viewBuffer buffer
       pure $ lookupBytecodeMetadata memo bc
 
-initialVM :: VM
-initialVM = vmForEthrunCreation mempty & block . timestamp .~ litWord initialTimestamp
-                                       & block . number .~ initialBlockNumber
-                                       & env . contracts .~ mempty       -- fixes weird nonce issues
+vmForEthrunCreation :: Bool -> VM
+vmForEthrunCreation ffi =
+  makeVm $ VMOpts
+    { vmoptContract = initialContract (InitCode (ConcreteBuffer mempty))
+    , vmoptCalldata = (mempty, 0)
+    , vmoptValue = 0
+    , vmoptAddress = createAddress ethrunAddress 1
+    , vmoptCaller = litAddr ethrunAddress
+    , vmoptOrigin = ethrunAddress
+    , vmoptCoinbase = 0
+    , vmoptNumber = 0
+    , vmoptTimestamp = 0
+    , vmoptBlockGaslimit = 0
+    , vmoptGasprice = 0
+    , vmoptDifficulty = 0
+    , vmoptGas = 0xffffffffffffffff
+    , vmoptGaslimit = 0xffffffffffffffff
+    , vmoptBaseFee = 0
+    , vmoptPriorityFee = 0
+    , vmoptMaxCodeSize = 0xffffffff
+    , vmoptSchedule = berlin
+    , vmoptChainId = 1
+    , vmoptCreate = False
+    , vmoptStorageModel = ConcreteS
+    , vmoptTxAccessList = mempty
+    , vmoptAllowFFI = ffi
+    } 
+
+initialVM :: Bool -> VM
+initialVM ffi = vmForEthrunCreation ffi 
+  & block . timestamp .~ litWord initialTimestamp
+  & block . number .~ initialBlockNumber
+  & env . contracts .~ mempty       -- fixes weird nonce issues

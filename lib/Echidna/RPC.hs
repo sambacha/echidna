@@ -124,7 +124,7 @@ loadEthenoBatch fp = do
        (Right (ethenoInit :: [Etheno])) -> do
          -- Execute contract creations and initial transactions,
          let initVM = foldM execEthenoTxs () ethenoInit
-         (_, vm') <- runStateT initVM initialVM
+         (_, vm') <- runStateT initVM (initialVM False) -- No FFI is allowed here
          return vm'
 
 -- | Takes a list of Etheno transactions and loads them into the VM, returning the
