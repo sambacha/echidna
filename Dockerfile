@@ -10,8 +10,6 @@ RUN apt-get update && apt-get install -qqy --no-install-recommends \
     dpkg-sig \
     libcap-dev \
     libc6-dev \
-    librust-pkg-config-dev \
-    openssl \
     sudo \
     git \
     cmake \
